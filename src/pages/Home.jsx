@@ -4,7 +4,8 @@ import MainFeature from '../components/MainFeature'
 import ApperIcon from '../components/ApperIcon'
 
 const Home = () => {
-  const [currentUser, setCurrentUser] = useState({ role: 'admin', name: 'Alex Chen' })
+  const [currentUser, setCurrentUser] = useState({ role: 'admin', name: 'Alex Chen', id: 'alex-chen' })
+
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(false)
 
@@ -15,6 +16,17 @@ const Home = () => {
       document.documentElement.classList.remove('dark')
     }
   }, [darkMode])
+  // Toggle user role for demonstration
+  const toggleUserRole = () => {
+    setCurrentUser(prev => ({
+      ...prev,
+      role: prev.role === 'admin' ? 'writer' : 'admin',
+      name: prev.role === 'admin' ? 'Alex Chen' : 'Alex Chen',
+      id: prev.role === 'admin' ? 'alex-chen' : 'admin'
+    }))
+  }
+
+
 
   const navigationItems = [
     { name: 'Dashboard', icon: 'LayoutDashboard', active: true },
@@ -130,10 +142,21 @@ const Home = () => {
               >
                 <ApperIcon name="Menu" className="w-6 h-6" />
               </button>
-              <div>
+              <div className="flex items-center space-x-3">
                 <h1 className="text-2xl font-bold text-surface-900">Dashboard</h1>
-                <p className="text-surface-500 text-sm">Welcome back, {currentUser.name}</p>
+                <button
+                  onClick={toggleUserRole}
+                  className="px-3 py-1 text-xs font-medium rounded-full transition-colors
+                    bg-primary/10 text-primary hover:bg-primary/20"
+                  title="Toggle between Admin and Writer view for demo"
+                >
+                  Switch to {currentUser.role === 'admin' ? 'Writer' : 'Admin'}
+                </button>
               </div>
+              <p className="text-surface-500 text-sm">Welcome back, {currentUser.name}</p>
+
+            </div>
+
             </div>
             
             <div className="flex items-center space-x-4">

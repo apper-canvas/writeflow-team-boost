@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-toastify'
 import ApperIcon from './ApperIcon'
-import { format, addDays } from 'date-fns'
+import TaskModal from './TaskModal'
+import WriterModal from './WriterModal'
+import { format, addDays, startOfWeek, endOfWeek } from 'date-fns'
+import { filterTasksByRole, calculateRoleBasedStats, getWeeklyPerformance, getPendingReviews } from '../utils/roleUtils'
 
 const MainFeature = ({ currentUser }) => {
   const [activeTab, setActiveTab] = useState('overview')
@@ -25,7 +28,9 @@ const MainFeature = ({ currentUser }) => {
         status: 'in-progress',
         tags: ['blog', 'ai', 'marketing'],
         createdBy: 'admin',
-        createdAt: new Date()
+        createdAt: new Date(),
+        submittedAt: null,
+        reviewedAt: null
       },
       {
         id: '2',
@@ -37,7 +42,9 @@ const MainFeature = ({ currentUser }) => {
         status: 'pending',
         tags: ['social-media', 'product-launch'],
         createdBy: 'admin',
-        createdAt: new Date()
+        createdAt: new Date(),
+        submittedAt: null,
+        reviewedAt: null
       },
       {
         id: '3',
@@ -49,7 +56,23 @@ const MainFeature = ({ currentUser }) => {
         status: 'submitted',
         tags: ['newsletter', 'email'],
         createdBy: 'admin',
-        createdAt: new Date()
+        createdAt: addDays(new Date(), -5),
+        submittedAt: addDays(new Date(), -1),
+        reviewedAt: null
+      },
+      {
+        id: '4',
+        title: 'Product Description - New Features',
+        description: 'Create compelling product descriptions for new feature set',
+        wordCount: 1200,
+        deadline: addDays(new Date(), 4),
+        assignedTo: 'sarah-wilson',
+        status: 'in-review',
+        tags: ['product', 'features'],
+        createdBy: 'admin',
+        createdAt: addDays(new Date(), -3),
+        submittedAt: addDays(new Date(), -1),
+        reviewedAt: new Date()
       }
     ]
 
@@ -63,7 +86,14 @@ const MainFeature = ({ currentUser }) => {
         expertise: ['Blog Writing', 'Technical Content', 'SEO'],
         status: 'active',
         teamTags: ['blog', 'technical'],
-        performance: { completedTasks: 24, totalWordCount: 48000, deadlinesMet: 22, averageRating: 4.8 }
+        performance: { 
+          completedTasks: 24, 
+          totalWordCount: 48000, 
+          deadlinesMet: 22, 
+          averageRating: 4.8,
+          weeklyWordCount: 3200,
+          weeklyTasksCompleted: 2
+        }
       },
       {
         id: 'mike-chen',
@@ -74,13 +104,80 @@ const MainFeature = ({ currentUser }) => {
         expertise: ['Social Media', 'Creative Copy', 'Brand Voice'],
         status: 'active',
         teamTags: ['social-media', 'creative'],
-        performance: { completedTasks: 18, totalWordCount: 32000, deadlinesMet: 17, averageRating: 4.6 }
+        performance: { 
+          completedTasks: 18, 
+          totalWordCount: 32000, 
+          deadlinesMet: 17, 
+          averageRating: 4.6,
+          weeklyWordCount: 1800,
+          weeklyTasksCompleted: 3
+        }
+      },
+      {
+        id: currentUser.role === 'writer' ? 'alex-chen' : 'admin',
+        name: currentUser.name,
+        email: currentUser.role === 'writer' ? 'alex@company.com' : 'admin@company.com',
+        role: currentUser.role,
+        bio: currentUser.role === 'writer' ? 'Content writer focused on technical documentation' : 'Team manager and content strategist',
+        expertise: currentUser.role === 'writer' ? ['Technical Writing', 'Documentation', 'API Guides'] : ['Team Management', 'Content Strategy'],
+        status: 'active',
+        teamTags: currentUser.role === 'writer' ? ['technical', 'documentation'] : ['management'],
+        performance: currentUser.role === 'writer' ? {
+          completedTasks: 15,
+          totalWordCount: 28000,
+          deadlinesMet: 14,
+          averageRating: 4.7,
+          weeklyWordCount: 2100,
+          weeklyTasksCompleted: 1
+        } : {
+          completedTasks: 0,
+          totalWordCount: 0,
+          deadlinesMet: 0,
+          averageRating: 0,
+          weeklyWordCount: 0,
+          weeklyTasksCompleted: 0
+        }
       }
     ]
 
+    // Add current user's tasks if they're a writer
+    if (currentUser.role === 'writer') {
+      const userTasks = [
+        {
+          id: '5',
+          title: 'API Documentation Update',
+          description: 'Update REST API documentation with new endpoints',
+          wordCount: 1500,
+          deadline: addDays(new Date(), 5),
+          assignedTo: 'alex-chen',
+          status: 'in-progress',
+          tags: ['documentation', 'api'],
+          createdBy: 'admin',
+          createdAt: addDays(new Date(), -2),
+          submittedAt: null,
+          reviewedAt: null
+        },
+        {
+          id: '6',
+          title: 'User Guide - Advanced Features',
+          description: 'Create comprehensive user guide for advanced platform features',
+          wordCount: 2500,
+          deadline: addDays(new Date(), 7),
+          assignedTo: 'alex-chen',
+          status: 'pending',
+          tags: ['user-guide', 'features'],
+          createdBy: 'admin',
+          createdAt: new Date(),
+          submittedAt: null,
+          reviewedAt: null
+        }
+      ]
+      sampleTasks.push(...userTasks)
+    }
+
     setTasks(sampleTasks)
     setWriters(sampleWriters)
-  }, [])
+  }, [currentUser])
 
   const getStatusColor = (status) => {
     const colors = {
@@ -100,7 +197,9 @@ const MainFeature = ({ currentUser }) => {
       ...taskData,
       status: 'pending',
       createdBy: currentUser.name,
-      createdAt: new Date()
+      createdAt: new Date(),
+      submittedAt: null,
+      reviewedAt: null
     }
     setTasks([...tasks, newTask])
     setShowTaskModal(false)
@@ -113,7 +212,14 @@ const MainFeature = ({ currentUser }) => {
       ...writerData,
       role: 'writer',
       status: 'active',
-      performance: { completedTasks: 0, totalWordCount: 0, deadlinesMet: 0, averageRating: 0 }
+      performance: { 
+        completedTasks: 0, 
+        totalWordCount: 0, 
+        deadlinesMet: 0, 
+        averageRating: 0,
+        weeklyWordCount: 0,
+        weeklyTasksCompleted: 0
+      }
     }
     setWriters([...writers, newWriter])
     setShowWriterModal(false)
@@ -121,10 +227,20 @@ const MainFeature = ({ currentUser }) => {
   }
 
   const updateTaskStatus = (taskId, newStatus) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId ? { ...task, status: newStatus } : task
-    ))
-    toast.success(`Task status updated to ${newStatus}`)
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        const updatedTask = { ...task, status: newStatus }
+        if (newStatus === 'submitted' && !task.submittedAt) {
+          updatedTask.submittedAt = new Date()
+        }
+        if (newStatus === 'in-review' && !task.reviewedAt) {
+          updatedTask.reviewedAt = new Date()
+        }
+        return updatedTask
+      }
+      return task
+    }))
+    toast.success(`Task status updated to ${newStatus.replace('-', ' ')}`)
   }
 
   const getWriterName = (writerId) => {
@@ -132,22 +248,72 @@ const MainFeature = ({ currentUser }) => {
     return writer ? writer.name : 'Unassigned'
   }
 
-  const statsData = {
-    totalTasks: tasks.length,
-    activeTasks: tasks.filter(t => ['pending', 'in-progress'].includes(t.status)).length,
-    completedTasks: tasks.filter(t => t.status === 'approved').length,
-    activeWriters: writers.filter(w => w.status === 'active').length
-  }
+  // Role-based data filtering
+  const visibleTasks = filterTasksByRole(tasks, currentUser)
+  const statsData = calculateRoleBasedStats(visibleTasks, writers, currentUser)
+  const weeklyPerformance = getWeeklyPerformance(visibleTasks, writers, currentUser)
+  const pendingReviews = getPendingReviews(visibleTasks, currentUser)
+
+  // Role-based writers list
+  const visibleWriters = currentUser.role === 'admin' 
+    ? writers.filter(w => w.role === 'writer')
+    : writers.filter(w => w.id === currentUser.id || w.role === 'admin')
 
   return (
     <div className="space-y-6">
+      {/* Role-Based Welcome Message */}
+      <div className="writeflow-card p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-surface-900">
+              {currentUser.role === 'admin' ? 'Team Dashboard' : 'My Dashboard'}
+            </h2>
+            <p className="text-surface-600 mt-1">
+              {currentUser.role === 'admin' 
+                ? 'Manage your writing team and track overall performance'
+                : 'Track your tasks, deadlines, and writing performance'
+              }
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+              currentUser.role === 'admin' 
+                ? 'bg-purple-100 text-purple-800' 
+                : 'bg-blue-100 text-blue-800'
+            }`}>
+              {currentUser.role === 'admin' ? 'Team Manager' : 'Writer'}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Stats Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         {[
-          { label: 'Total Tasks', value: statsData.totalTasks, icon: 'ClipboardList', color: 'from-blue-500 to-blue-600' },
-          { label: 'Active Tasks', value: statsData.activeTasks, icon: 'Clock', color: 'from-amber-500 to-amber-600' },
-          { label: 'Completed', value: statsData.completedTasks, icon: 'CheckCircle', color: 'from-green-500 to-green-600' },
-          { label: 'Active Writers', value: statsData.activeWriters, icon: 'Users', color: 'from-purple-500 to-purple-600' }
+          { 
+            label: currentUser.role === 'admin' ? 'Total Tasks' : 'My Tasks', 
+            value: statsData.totalTasks, 
+            icon: 'ClipboardList', 
+            color: 'from-blue-500 to-blue-600' 
+          },
+          { 
+            label: currentUser.role === 'admin' ? 'Active Tasks' : 'Active', 
+            value: statsData.activeTasks, 
+            icon: 'Clock', 
+            color: 'from-amber-500 to-amber-600' 
+          },
+          { 
+            label: currentUser.role === 'admin' ? 'Pending Reviews' : 'Submitted', 
+            value: currentUser.role === 'admin' ? pendingReviews.length : statsData.submittedTasks, 
+            icon: currentUser.role === 'admin' ? 'Eye' : 'Send', 
+            color: 'from-indigo-500 to-indigo-600' 
+          },
+          { 
+            label: currentUser.role === 'admin' ? 'Active Writers' : 'Completed', 
+            value: currentUser.role === 'admin' ? statsData.activeWriters : statsData.completedTasks, 
+            icon: currentUser.role === 'admin' ? 'Users' : 'CheckCircle', 
+            color: currentUser.role === 'admin' ? 'from-purple-500 to-purple-600' : 'from-green-500 to-green-600' 
+          }
         ].map((stat, index) => (
           <motion.div
             key={stat.label}
@@ -169,13 +335,37 @@ const MainFeature = ({ currentUser }) => {
         ))}
       </div>
 
+      {/* Weekly Performance Snapshot */}
+      <div className="writeflow-card p-6">
+        <h3 className="text-lg font-semibold text-surface-900 mb-4">
+          {currentUser.role === 'admin' ? 'Team Weekly Performance' : 'My Weekly Performance'}
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-primary">{weeklyPerformance.totalWords.toLocaleString()}</div>
+            <div className="text-sm text-surface-600 mt-1">Words Written</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-secondary">{weeklyPerformance.tasksCompleted}</div>
+            <div className="text-sm text-surface-600 mt-1">Tasks Completed</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-accent">{weeklyPerformance.averageRating.toFixed(1)}/5</div>
+            <div className="text-sm text-surface-600 mt-1">Average Rating</div>
+          </div>
+        </div>
+        <div className="mt-4 text-xs text-surface-500 text-center">
+          Week of {format(startOfWeek(new Date()), 'MMM dd')} - {format(endOfWeek(new Date()), 'MMM dd, yyyy')}
+        </div>
+      </div>
+
       {/* Tab Navigation */}
       <div className="writeflow-card p-2">
         <div className="flex flex-wrap space-x-1">
           {[
             { id: 'overview', label: 'Overview', icon: 'LayoutDashboard' },
-            { id: 'tasks', label: 'Tasks', icon: 'ClipboardList' },
-            { id: 'writers', label: 'Writers', icon: 'Users' },
+            { id: 'tasks', label: currentUser.role === 'admin' ? 'All Tasks' : 'My Tasks', icon: 'ClipboardList' },
+            ...(currentUser.role === 'admin' ? [{ id: 'writers', label: 'Writers', icon: 'Users' }] : []),
             { id: 'performance', label: 'Performance', icon: 'TrendingUp' }
           ].map((tab) => (
             <button
@@ -205,15 +395,23 @@ const MainFeature = ({ currentUser }) => {
         >
           {activeTab === 'overview' && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              {/* Recent Tasks */}
+              {/* Recent/Active Tasks */}
               <div className="writeflow-card p-6">
-                <h3 className="text-lg font-semibold text-surface-900 mb-4">Recent Tasks</h3>
+                <h3 className="text-lg font-semibold text-surface-900 mb-4">
+                  {currentUser.role === 'admin' ? 'Recent Tasks' : 'My Active Tasks'}
+                </h3>
                 <div className="space-y-4">
-                  {tasks.slice(0, 3).map((task) => (
+                  {visibleTasks.filter(t => currentUser.role === 'writer' ? ['pending', 'in-progress'].includes(t.status) : true)
+                    .slice(0, 3).map((task) => (
                     <div key={task.id} className="flex items-center justify-between p-4 bg-surface-50 rounded-xl">
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-surface-900 truncate">{task.title}</h4>
-                        <p className="text-sm text-surface-600">Assigned to {getWriterName(task.assignedTo)}</p>
+                        <p className="text-sm text-surface-600">
+                          {currentUser.role === 'admin' 
+                            ? `Assigned to ${getWriterName(task.assignedTo)}`
+                            : `Due ${format(task.deadline, 'MMM dd')}`
+                          }
+                        </p>
                       </div>
                       <span className={`writeflow-status-badge ${getStatusColor(task.status)}`}>
                         {task.status.replace('-', ' ')}
@@ -223,31 +421,52 @@ const MainFeature = ({ currentUser }) => {
                 </div>
               </div>
 
-              {/* Writer Performance */}
+              {/* Pending Reviews or Performance */}
               <div className="writeflow-card p-6">
-                <h3 className="text-lg font-semibold text-surface-900 mb-4">Top Performers</h3>
+                <h3 className="text-lg font-semibold text-surface-900 mb-4">
+                  {currentUser.role === 'admin' ? 'Pending Reviews' : 'My Performance'}
+                </h3>
                 <div className="space-y-4">
-                  {writers.slice(0, 3).map((writer) => (
-                    <div key={writer.id} className="flex items-center space-x-4 p-4 bg-surface-50 rounded-xl">
-                      <div className="w-10 h-10 bg-gradient-to-br from-secondary to-secondary-light rounded-xl flex items-center justify-center">
-                        <span className="text-white font-semibold text-sm">
-                          {writer.name.split(' ').map(n => n[0]).join('')}
-                        </span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-surface-900">{writer.name}</h4>
-                        <p className="text-sm text-surface-600">
-                          {writer.performance.completedTasks} tasks • {(writer.performance.totalWordCount / 1000).toFixed(1)}k words
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center space-x-1">
-                          <ApperIcon name="Star" className="w-4 h-4 text-amber-400 fill-current" />
-                          <span className="text-sm font-medium">{writer.performance.averageRating}</span>
+                  {currentUser.role === 'admin' ? (
+                    pendingReviews.slice(0, 3).map((task) => (
+                      <div key={task.id} className="flex items-center space-x-4 p-4 bg-surface-50 rounded-xl">
+                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                          <ApperIcon name="FileText" className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-surface-900 truncate">{task.title}</h4>
+                          <p className="text-sm text-surface-600">By {getWriterName(task.assignedTo)}</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-surface-500">
+                            Submitted {task.submittedAt ? format(task.submittedAt, 'MMM dd') : 'Recently'}
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-surface-600">Tasks Completed</span>
+                        <span className="font-semibold">{statsData.completedTasks}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-surface-600">Words This Week</span>
+                        <span className="font-semibold">{weeklyPerformance.totalWords.toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-surface-600">Average Rating</span>
+                        <div className="flex items-center space-x-1">
+                          <ApperIcon name="Star" className="w-4 h-4 text-amber-400 fill-current" />
+                          <span className="font-semibold">{weeklyPerformance.averageRating.toFixed(1)}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-surface-600">Deadlines Met</span>
+                        <span className="font-semibold">{Math.round((statsData.deadlinesMet / Math.max(statsData.completedTasks, 1)) * 100)}%</span>
+                      </div>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
@@ -256,18 +475,22 @@ const MainFeature = ({ currentUser }) => {
           {activeTab === 'tasks' && (
             <div className="writeflow-card p-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
-                <h3 className="text-lg font-semibold text-surface-900">Task Management</h3>
-                <button
-                  onClick={() => setShowTaskModal(true)}
-                  className="writeflow-button-primary flex items-center space-x-2"
-                >
-                  <ApperIcon name="Plus" className="w-4 h-4" />
-                  <span>New Task</span>
-                </button>
+                <h3 className="text-lg font-semibold text-surface-900">
+                  {currentUser.role === 'admin' ? 'Task Management' : 'My Tasks'}
+                </h3>
+                {currentUser.role === 'admin' && (
+                  <button
+                    onClick={() => setShowTaskModal(true)}
+                    className="writeflow-button-primary flex items-center space-x-2"
+                  >
+                    <ApperIcon name="Plus" className="w-4 h-4" />
+                    <span>New Task</span>
+                  </button>
+                )}
               </div>
 
               <div className="space-y-4">
-                {tasks.map((task) => (
+                {visibleTasks.map((task) => (
                   <div key={task.id} className="border border-surface-200 rounded-xl p-4 hover:shadow-soft transition-all duration-200">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-3 lg:space-y-0">
                       <div className="flex-1 min-w-0">
@@ -279,25 +502,38 @@ const MainFeature = ({ currentUser }) => {
                         </div>
                         <p className="text-sm text-surface-600 mt-1">{task.description}</p>
                         <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-surface-500">
-                          <span>Assigned to: {getWriterName(task.assignedTo)}</span>
+                          {currentUser.role === 'admin' && (
+                            <span>Assigned to: {getWriterName(task.assignedTo)}</span>
+                          )}
                           <span>{task.wordCount} words</span>
                           <span>Due: {format(task.deadline, 'MMM dd, yyyy')}</span>
+                          {task.submittedAt && (
+                            <span>Submitted: {format(task.submittedAt, 'MMM dd')}</span>
+                          )}
                         </div>
                       </div>
                       
                       <div className="flex items-center space-x-2">
-                        <select
-                          value={task.status}
-                          onChange={(e) => updateTaskStatus(task.id, e.target.value)}
-                          className="writeflow-input text-sm py-2 min-w-0"
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="in-progress">In Progress</option>
-                          <option value="submitted">Submitted</option>
-                          <option value="in-review">In Review</option>
-                          <option value="approved">Approved</option>
-                          <option value="needs-revision">Needs Revision</option>
-                        </select>
+                        {(currentUser.role === 'admin' || 
+                          (currentUser.role === 'writer' && task.assignedTo === currentUser.id)) && (
+                          <select
+                            value={task.status}
+                            onChange={(e) => updateTaskStatus(task.id, e.target.value)}
+                            className="writeflow-input text-sm py-2 min-w-0"
+                            disabled={currentUser.role === 'writer' && ['approved', 'in-review'].includes(task.status)}
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="in-progress">In Progress</option>
+                            <option value="submitted">Submitted</option>
+                            {currentUser.role === 'admin' && (
+                              <>
+                                <option value="in-review">In Review</option>
+                                <option value="approved">Approved</option>
+                                <option value="needs-revision">Needs Revision</option>
+                              </>
+                            )}
+                          </select>
+                        )}
                         <button
                           onClick={() => setSelectedTask(task)}
                           className="p-2 text-surface-600 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
@@ -312,7 +548,7 @@ const MainFeature = ({ currentUser }) => {
             </div>
           )}
 
-          {activeTab === 'writers' && (
+          {activeTab === 'writers' && currentUser.role === 'admin' && (
             <div className="writeflow-card p-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
                 <h3 className="text-lg font-semibold text-surface-900">Writer Management</h3>
@@ -326,7 +562,7 @@ const MainFeature = ({ currentUser }) => {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {writers.map((writer) => (
+                {visibleWriters.map((writer) => (
                   <div key={writer.id} className="border border-surface-200 rounded-xl p-6 hover:shadow-soft transition-all duration-200">
                     <div className="flex items-start space-x-4">
                       <div className="w-12 h-12 bg-gradient-to-br from-secondary to-secondary-light rounded-xl flex items-center justify-center flex-shrink-0">
@@ -377,21 +613,27 @@ const MainFeature = ({ currentUser }) => {
 
           {activeTab === 'performance' && (
             <div className="writeflow-card p-6">
-              <h3 className="text-lg font-semibold text-surface-900 mb-6">Performance Analytics</h3>
+              <h3 className="text-lg font-semibold text-surface-900 mb-6">
+                {currentUser.role === 'admin' ? 'Team Performance Analytics' : 'My Performance Analytics'}
+              </h3>
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <h4 className="font-medium text-surface-900">Team Productivity</h4>
-                  {writers.map((writer) => (
+                  <h4 className="font-medium text-surface-900">
+                    {currentUser.role === 'admin' ? 'Team Productivity' : 'My Productivity'}
+                  </h4>
+                  {(currentUser.role === 'admin' ? visibleWriters : [writers.find(w => w.id === currentUser.id)]).map((writer) => (
                     <div key={writer.id} className="p-4 bg-surface-50 rounded-xl">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-surface-900">{writer.name}</span>
+                        <span className="font-medium text-surface-900">
+                          {currentUser.role === 'admin' ? writer.name : 'You'}
+                        </span>
                         <span className="text-sm text-surface-600">{writer.performance.completedTasks} tasks</span>
                       </div>
                       <div className="w-full bg-surface-200 rounded-full h-2">
                         <div 
                           className="bg-gradient-to-r from-primary to-primary-light h-2 rounded-full"
-                          style={{ width: `${(writer.performance.completedTasks / 30) * 100}%` }}
+                          style={{ width: `${Math.min((writer.performance.completedTasks / 30) * 100, 100)}%` }}
                         ></div>
                       </div>
                       <div className="flex justify-between text-xs text-surface-500 mt-1">
@@ -403,11 +645,13 @@ const MainFeature = ({ currentUser }) => {
                 </div>
                 
                 <div className="space-y-4">
-                  <h4 className="font-medium text-surface-900">Task Distribution</h4>
+                  <h4 className="font-medium text-surface-900">
+                    {currentUser.role === 'admin' ? 'Task Distribution' : 'My Task Status'}
+                  </h4>
                   <div className="space-y-3">
                     {['pending', 'in-progress', 'submitted', 'approved'].map((status) => {
-                      const count = tasks.filter(t => t.status === status).length
-                      const percentage = tasks.length > 0 ? (count / tasks.length) * 100 : 0
+                      const count = visibleTasks.filter(t => t.status === status).length
+                      const percentage = visibleTasks.length > 0 ? (count / visibleTasks.length) * 100 : 0
                       return (
                         <div key={status} className="flex items-center justify-between">
                           <span className="text-sm font-medium text-surface-900 capitalize">
@@ -433,299 +677,24 @@ const MainFeature = ({ currentUser }) => {
         </motion.div>
       </AnimatePresence>
 
-      {/* Task Creation Modal */}
-      <TaskModal
-        isOpen={showTaskModal}
-        onClose={() => setShowTaskModal(false)}
-        onSubmit={handleCreateTask}
-        writers={writers}
-      />
+      {/* Task Creation Modal - Only for Admins */}
+      {currentUser.role === 'admin' && (
+        <TaskModal
+          isOpen={showTaskModal}
+          onClose={() => setShowTaskModal(false)}
+          onSubmit={handleCreateTask}
+          writers={visibleWriters}
+        />
+      )}
 
-      {/* Writer Creation Modal */}
-      <WriterModal
-        isOpen={showWriterModal}
-        onClose={() => setShowWriterModal(false)}
-        onSubmit={handleCreateWriter}
-      />
-    </div>
-  )
-}
-
-// Task Creation Modal Component
-const TaskModal = ({ isOpen, onClose, onSubmit, writers }) => {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    wordCount: '',
-    deadline: '',
-    assignedTo: '',
-    tags: ''
-  })
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!formData.title || !formData.description || !formData.assignedTo) {
-      toast.error('Please fill in all required fields')
-      return
-    }
-
-    onSubmit({
-      ...formData,
-      wordCount: parseInt(formData.wordCount) || 0,
-      deadline: new Date(formData.deadline),
-      tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean)
-    })
-
-    setFormData({
-      title: '',
-      description: '',
-      wordCount: '',
-      deadline: '',
-      assignedTo: '',
-      tags: ''
-    })
-  }
-
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="writeflow-card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-surface-900">Create New Task</h3>
-          <button
-            onClick={onClose}
-            className="p-2 text-surface-400 hover:text-surface-600 transition-colors"
-          >
-            <ApperIcon name="X" className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-surface-700 mb-2">Title *</label>
-            <input
-              type="text"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="writeflow-input"
-              placeholder="Enter task title"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-surface-700 mb-2">Description *</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="writeflow-input h-24 resize-none"
-              placeholder="Describe the task requirements"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-surface-700 mb-2">Word Count</label>
-              <input
-                type="number"
-                value={formData.wordCount}
-                onChange={(e) => setFormData({ ...formData, wordCount: e.target.value })}
-                className="writeflow-input"
-                placeholder="0"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-surface-700 mb-2">Deadline</label>
-              <input
-                type="date"
-                value={formData.deadline}
-                onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                className="writeflow-input"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-surface-700 mb-2">Assign to Writer *</label>
-            <select
-              value={formData.assignedTo}
-              onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
-              className="writeflow-input"
-              required
-            >
-              <option value="">Select a writer</option>
-              {writers.filter(w => w.status === 'active').map((writer) => (
-                <option key={writer.id} value={writer.id}>{writer.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-surface-700 mb-2">Tags</label>
-            <input
-              type="text"
-              value={formData.tags}
-              onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-              className="writeflow-input"
-              placeholder="blog, seo, marketing (comma separated)"
-            />
-          </div>
-
-          <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="writeflow-button-secondary flex-1"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="writeflow-button-primary flex-1"
-            >
-              Create Task
-            </button>
-          </div>
-        </form>
-      </motion.div>
-    </div>
-  )
-}
-
-// Writer Creation Modal Component
-const WriterModal = ({ isOpen, onClose, onSubmit }) => {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    bio: '',
-    expertise: '',
-    teamTags: ''
-  })
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!formData.name || !formData.email) {
-      toast.error('Please fill in all required fields')
-      return
-    }
-
-    onSubmit({
-      ...formData,
-      expertise: formData.expertise.split(',').map(skill => skill.trim()).filter(Boolean),
-      teamTags: formData.teamTags.split(',').map(tag => tag.trim()).filter(Boolean)
-    })
-
-    setFormData({
-      name: '',
-      email: '',
-      bio: '',
-      expertise: '',
-      teamTags: ''
-    })
-  }
-
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="writeflow-card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-surface-900">Add New Writer</h3>
-          <button
-            onClick={onClose}
-            className="p-2 text-surface-400 hover:text-surface-600 transition-colors"
-          >
-            <ApperIcon name="X" className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-surface-700 mb-2">Name *</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="writeflow-input"
-              placeholder="Enter writer's full name"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-surface-700 mb-2">Email *</label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="writeflow-input"
-              placeholder="writer@company.com"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-surface-700 mb-2">Bio</label>
-            <textarea
-              value={formData.bio}
-              onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-              className="writeflow-input h-20 resize-none"
-              placeholder="Brief description of the writer's background"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-surface-700 mb-2">Expertise</label>
-            <input
-              type="text"
-              value={formData.expertise}
-              onChange={(e) => setFormData({ ...formData, expertise: e.target.value })}
-              className="writeflow-input"
-              placeholder="Blog Writing, SEO, Technical Content (comma separated)"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-surface-700 mb-2">Team Tags</label>
-            <input
-              type="text"
-              value={formData.teamTags}
-              onChange={(e) => setFormData({ ...formData, teamTags: e.target.value })}
-              className="writeflow-input"
-              placeholder="blog, technical, creative (comma separated)"
-            />
-          </div>
-
-          <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="writeflow-button-secondary flex-1"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="writeflow-button-primary flex-1"
-            >
-              Add Writer
-            </button>
-          </div>
-        </form>
-      </motion.div>
+      {/* Writer Creation Modal - Only for Admins */}
+      {currentUser.role === 'admin' && (
+        <WriterModal
+          isOpen={showWriterModal}
+          onClose={() => setShowWriterModal(false)}
+          onSubmit={handleCreateWriter}
+        />
+      )}
     </div>
   )
 }
