@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'react-toastify'
 import ApperIcon from './ApperIcon'
+import TaskTemplatesModal from './TaskTemplatesModal'
+import TaskFilters from './TaskFilters'
+
 import TaskModal from './TaskModal'
 import WriterModal from './WriterModal'
 import { format, addDays, startOfWeek, endOfWeek } from 'date-fns'
@@ -14,10 +17,48 @@ const MainFeature = ({ currentUser }) => {
   const [showTaskModal, setShowTaskModal] = useState(false)
   const [showWriterModal, setShowWriterModal] = useState(false)
   const [selectedTask, setSelectedTask] = useState(null)
+  const [showTaskTemplatesModal, setShowTaskTemplatesModal] = useState(false)
+  const [taskTemplates, setTaskTemplates] = useState([])
+  const [taskFilters, setTaskFilters] = useState({})
+
 
   // Initialize sample data
   useEffect(() => {
     const sampleTasks = [
+    // Initialize task templates
+    const sampleTemplates = [
+      {
+        id: '1',
+        title: 'Weekly Blog Post',
+        description: 'Create an engaging blog post with SEO optimization and actionable insights',
+        wordCount: 1500,
+        tags: ['blog', 'seo', 'weekly'],
+        category: 'blog',
+        createdAt: new Date()
+      },
+      {
+        id: '2',
+        title: 'Product Launch Social Media',
+        description: 'Create compelling social media posts for product launch across all platforms',
+        wordCount: 300,
+        tags: ['social-media', 'product-launch', 'marketing'],
+        category: 'social-media',
+        createdAt: new Date()
+      },
+      {
+        id: '3',
+        title: 'Email Newsletter',
+        description: 'Weekly newsletter with industry insights, company updates, and valuable content',
+        wordCount: 800,
+        tags: ['newsletter', 'email', 'weekly'],
+        category: 'email',
+        createdAt: new Date()
+      }
+    ]
+    ]
+
+
+
       {
         id: '1',
         title: 'Blog Post: AI in Content Marketing',
@@ -175,6 +216,8 @@ const MainFeature = ({ currentUser }) => {
       sampleTasks.push(...userTasks)
     }
 
+    setTaskTemplates(sampleTemplates)
+
     setTasks(sampleTasks)
     setWriters(sampleWriters)
   }, [currentUser])
@@ -191,7 +234,24 @@ const MainFeature = ({ currentUser }) => {
     return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200'
   }
 
-  const handleCreateTask = (taskData) => {
+        setTasks(prevTasks => [...prevTasks, newTask])
+      })
+    } else {
+      // Single writer assignment (legacy support)
+      const newTask = {
+        id: Date.now().toString(),
+        ...taskData,
+        assignedTo: taskData.assignedTo,
+        status: 'pending',
+        createdBy: currentUser.name,
+        createdAt: new Date(),
+        submittedAt: null,
+        reviewedAt: null
+      }
+      setTasks(prevTasks => [...prevTasks, newTask])
+    }
+
+
     const newTask = {
       id: Date.now().toString(),
       ...taskData,
@@ -224,7 +284,85 @@ const MainFeature = ({ currentUser }) => {
     setWriters([...writers, newWriter])
     setShowWriterModal(false)
     toast.success('Writer added successfully!')
+
+  const handleCreateTemplate = (templateData) => {
+    setTaskTemplates([...taskTemplates, templateData])
+    setShowTaskTemplatesModal(false)
   }
+
+  const applyTaskFilters = (tasks, filters) => {
+    let filteredTasks = [...tasks]
+
+    if (filters.status) {
+      filteredTasks = filteredTasks.filter(task => task.status === filters.status)
+    }
+
+    if (filters.assignee) {
+      filteredTasks = filteredTasks.filter(task => task.assignedTo === filters.assignee)
+    }
+
+    if (filters.tag) {
+      filteredTasks = filteredTasks.filter(task => task.tags.includes(filters.tag))
+    }
+
+    if (filters.deadlineRange) {
+      const now = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      
+      filteredTasks = filteredTasks.filter(task => {
+        const deadline = new Date(task.deadline)
+        
+        switch (filters.deadlineRange) {
+          case 'overdue':
+            return deadline < today
+          case 'today':
+            return deadline.toDateString() === today.toDateString()
+          case 'tomorrow':
+            const tomorrow = new Date(today)
+            tomorrow.setDate(tomorrow.getDate() + 1)
+            return deadline.toDateString() === tomorrow.toDateString()
+          case 'this-week':
+            const weekEnd = new Date(today)
+            weekEnd.setDate(weekEnd.getDate() + 7)
+            return deadline >= today && deadline <= weekEnd
+          case 'next-week':
+            const nextWeekStart = new Date(today)
+            nextWeekStart.setDate(nextWeekStart.getDate() + 7)
+            const nextWeekEnd = new Date(today)
+            nextWeekEnd.setDate(nextWeekEnd.getDate() + 14)
+            return deadline >= nextWeekStart && deadline <= nextWeekEnd
+          case 'this-month':
+            return deadline.getMonth() === today.getMonth() && deadline.getFullYear() === today.getFullYear()
+          default:
+            return true
+        }
+      })
+    }
+
+    if (filters.wordCountRange) {
+      filteredTasks = filteredTasks.filter(task => {
+        const wordCount = task.wordCount || 0
+        
+        switch (filters.wordCountRange) {
+          case '0-500':
+            return wordCount >= 0 && wordCount <= 500
+          case '501-1000':
+            return wordCount >= 501 && wordCount <= 1000
+          case '1001-2000':
+            return wordCount >= 1001 && wordCount <= 2000
+          case '2001-5000':
+            return wordCount >= 2001 && wordCount <= 5000
+          case '5000+':
+            return wordCount > 5000
+          default:
+            return true
+        }
+      })
+    }
+
+    return filteredTasks
+  }
+
 
   const updateTaskStatus = (taskId, newStatus) => {
     setTasks(tasks.map(task => {
@@ -249,6 +387,13 @@ const MainFeature = ({ currentUser }) => {
   }
 
   // Role-based data filtering
+  // Apply filters to visible tasks
+  const filteredTasks = applyTaskFilters(visibleTasks, taskFilters)
+  
+  // Get all unique tags for filter options
+  const availableTags = [...new Set(tasks.flatMap(task => task.tags))].sort()
+
+
   const visibleTasks = filterTasksByRole(tasks, currentUser)
   const statsData = calculateRoleBasedStats(visibleTasks, writers, currentUser)
   const weeklyPerformance = getWeeklyPerformance(visibleTasks, writers, currentUser)
@@ -363,6 +508,8 @@ const MainFeature = ({ currentUser }) => {
       <div className="writeflow-card p-2">
         <div className="flex flex-wrap space-x-1">
           {[
+            ...(currentUser.role === 'admin' ? [{ id: 'templates', label: 'Templates', icon: 'FileText' }] : []),
+
             { id: 'overview', label: 'Overview', icon: 'LayoutDashboard' },
             { id: 'tasks', label: currentUser.role === 'admin' ? 'All Tasks' : 'My Tasks', icon: 'ClipboardList' },
             ...(currentUser.role === 'admin' ? [{ id: 'writers', label: 'Writers', icon: 'Users' }] : []),
@@ -472,7 +619,149 @@ const MainFeature = ({ currentUser }) => {
             </div>
           )}
 
-          {activeTab === 'tasks' && (
+          {activeTab === 'templates' && currentUser.role === 'admin' && (
+            <div className="writeflow-card p-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
+                <h3 className="text-lg font-semibold text-surface-900">Task Templates</h3>
+                <button
+                  onClick={() => setShowTaskTemplatesModal(true)}
+                  className="writeflow-button-primary flex items-center space-x-2"
+                >
+                  <ApperIcon name="Plus" className="w-4 h-4" />
+                  <span>New Template</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {taskTemplates.map((template) => (
+                  <div key={template.id} className="border border-surface-200 rounded-xl p-4 hover:shadow-soft transition-all duration-200">
+                    <div className="flex items-start justify-between mb-3">
+                      <h4 className="font-semibold text-surface-900">{template.title}</h4>
+                      <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
+                        {template.category}
+                      </span>
+                    </div>
+                    
+                    <p className="text-sm text-surface-600 mb-3">{template.description}</p>
+                    
+                    <div className="flex items-center justify-between text-sm text-surface-500 mb-3">
+                      <span>{template.wordCount} words</span>
+                      <span>{template.tags.length} tags</span>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-1 mb-4">
+                      {template.tags.slice(0, 3).map((tag) => (
+                        <span key={tag} className="px-2 py-1 bg-surface-100 text-surface-600 text-xs rounded-full">
+                          {tag}
+                        </span>
+                      ))}
+                      {template.tags.length > 3 && (
+                        <span className="px-2 py-1 bg-surface-100 text-surface-600 text-xs rounded-full">
+                          +{template.tags.length - 3}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <button
+                      onClick={() => {
+                        setShowTaskModal(true)
+                        // Template will be applied in TaskModal via selectedTemplate prop
+                      }}
+                      className="w-full writeflow-button-secondary text-sm py-2"
+                    >
+                      Use Template
+                    </button>
+                  </div>
+                ))}
+              </div>
+              
+              {taskTemplates.length === 0 && (
+                <div className="text-center py-8">
+                  <ApperIcon name="FileText" className="w-12 h-12 text-surface-300 mx-auto mb-3" />
+                  <h4 className="font-medium text-surface-600 mb-2">No templates yet</h4>
+                  <p className="text-sm text-surface-500 mb-4">
+                    Create reusable task templates to speed up recurring assignments
+                  </p>
+                  <button
+                    onClick={() => setShowTaskTemplatesModal(true)}
+                    className="writeflow-button-primary"
+                  >
+                    Create First Template
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+
+                            (currentUser.role === 'writer' && task.assignedTo === currentUser.id)) && (
+                            <select
+                              value={task.status}
+                              onChange={(e) => updateTaskStatus(task.id, e.target.value)}
+                              className="writeflow-input text-sm py-2 min-w-0"
+                              disabled={currentUser.role === 'writer' && ['approved', 'in-review'].includes(task.status)}
+                            >
+                              <option value="pending">Pending</option>
+                              <option value="in-progress">In Progress</option>
+                              <option value="submitted">Submitted</option>
+                              {currentUser.role === 'admin' && (
+                                <>
+                                  <option value="in-review">In Review</option>
+                                  <option value="approved">Approved</option>
+                                  <option value="needs-revision">Needs Revision</option>
+                                </>
+                              )}
+                            </select>
+                          )}
+                          <button
+                            onClick={() => setSelectedTask(task)}
+                            className="p-2 text-surface-600 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                          >
+                            <ApperIcon name="MoreHorizontal" className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {filteredTasks.length === 0 && (
+                    <div className="text-center py-8">
+                      <ApperIcon name="Search" className="w-12 h-12 text-surface-300 mx-auto mb-3" />
+                      <h4 className="font-medium text-surface-600 mb-2">
+                        {Object.values(taskFilters).some(v => v) ? 'No tasks match your filters' : 'No tasks yet'}
+                      </h4>
+                      <p className="text-sm text-surface-500 mb-4">
+                        {Object.values(taskFilters).some(v => v) 
+                          ? 'Try adjusting your filters to see more tasks'
+                          : currentUser.role === 'admin' 
+                            ? 'Create your first task to get started'
+                            : 'No tasks have been assigned to you yet'
+                        }
+                      </p>
+                      {Object.values(taskFilters).some(v => v) && (
+                        <button
+                          onClick={() => setTaskFilters({})}
+                          className="writeflow-button-secondary mr-2"
+                        >
+                          Clear Filters
+                        </button>
+                      )}
+                      {currentUser.role === 'admin' && (
+                        <button
+                          onClick={() => setShowTaskModal(true)}
+                          className="writeflow-button-primary"
+                        >
+                          Create First Task
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+
             <div className="writeflow-card p-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
                 <h3 className="text-lg font-semibold text-surface-900">
@@ -678,7 +967,16 @@ const MainFeature = ({ currentUser }) => {
       </AnimatePresence>
 
       {/* Task Creation Modal - Only for Admins */}
+
+      {/* Task Templates Modal - Only for Admins */}
       {currentUser.role === 'admin' && (
+        <TaskTemplatesModal
+          isOpen={showTaskTemplatesModal}
+          onClose={() => setShowTaskTemplatesModal(false)}
+          onSubmit={handleCreateTemplate}
+          existingTemplates={taskTemplates}
+        />
+
         <TaskModal
           isOpen={showTaskModal}
           onClose={() => setShowTaskModal(false)}
