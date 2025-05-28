@@ -155,9 +155,9 @@ const Home = () => {
               </div>
               <p className="text-surface-500 text-sm">Welcome back, {currentUser.name}</p>
 
-            </div>
 
             </div>
+
             
             <div className="flex items-center space-x-4">
               <button className="relative p-2 rounded-xl hover:bg-surface-100 transition-colors">
