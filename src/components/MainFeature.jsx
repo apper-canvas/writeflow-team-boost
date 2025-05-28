@@ -25,40 +25,6 @@ const MainFeature = ({ currentUser }) => {
   // Initialize sample data
   useEffect(() => {
     const sampleTasks = [
-    // Initialize task templates
-    const sampleTemplates = [
-      {
-        id: '1',
-        title: 'Weekly Blog Post',
-        description: 'Create an engaging blog post with SEO optimization and actionable insights',
-        wordCount: 1500,
-        tags: ['blog', 'seo', 'weekly'],
-        category: 'blog',
-        createdAt: new Date()
-      },
-      {
-        id: '2',
-        title: 'Product Launch Social Media',
-        description: 'Create compelling social media posts for product launch across all platforms',
-        wordCount: 300,
-        tags: ['social-media', 'product-launch', 'marketing'],
-        category: 'social-media',
-        createdAt: new Date()
-      },
-      {
-        id: '3',
-        title: 'Email Newsletter',
-        description: 'Weekly newsletter with industry insights, company updates, and valuable content',
-        wordCount: 800,
-        tags: ['newsletter', 'email', 'weekly'],
-        category: 'email',
-        createdAt: new Date()
-      }
-    ]
-    ]
-
-
-
       {
         id: '1',
         title: 'Blog Post: AI in Content Marketing',
@@ -116,6 +82,41 @@ const MainFeature = ({ currentUser }) => {
         reviewedAt: new Date()
       }
     ]
+
+    // Initialize task templates
+    const sampleTemplates = [
+      {
+        id: '1',
+        title: 'Weekly Blog Post',
+        description: 'Create an engaging blog post with SEO optimization and actionable insights',
+        wordCount: 1500,
+        tags: ['blog', 'seo', 'weekly'],
+        category: 'blog',
+        createdAt: new Date()
+      },
+      {
+        id: '2',
+        title: 'Product Launch Social Media',
+        description: 'Create compelling social media posts for product launch across all platforms',
+        wordCount: 300,
+        tags: ['social-media', 'product-launch', 'marketing'],
+        category: 'social-media',
+        createdAt: new Date()
+      },
+      {
+        id: '3',
+        title: 'Email Newsletter',
+        description: 'Weekly newsletter with industry insights, company updates, and valuable content',
+        wordCount: 800,
+        tags: ['newsletter', 'email', 'weekly'],
+        category: 'email',
+        createdAt: new Date()
+      }
+    ]
+
+
+
+
 
     const sampleWriters = [
       {
@@ -234,14 +235,29 @@ const MainFeature = ({ currentUser }) => {
     return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200'
   }
 
+  const handleCreateTask = (taskData) => {
+    // Support for multiple writer assignments
+    if (Array.isArray(taskData.assignedTo)) {
+      // Multiple writers - create separate tasks for each
+      taskData.assignedTo.forEach(writerId => {
+        const newTask = {
+          id: Date.now().toString() + '-' + writerId,
+          ...taskData,
+          assignedTo: writerId,
+          status: 'pending',
+          createdBy: currentUser.name,
+          createdAt: new Date(),
+          submittedAt: null,
+          reviewedAt: null
+        }
         setTasks(prevTasks => [...prevTasks, newTask])
       })
+      toast.success(`Task assigned to ${taskData.assignedTo.length} writers!`)
     } else {
-      // Single writer assignment (legacy support)
+      // Single writer assignment
       const newTask = {
         id: Date.now().toString(),
         ...taskData,
-        assignedTo: taskData.assignedTo,
         status: 'pending',
         createdBy: currentUser.name,
         createdAt: new Date(),
@@ -249,22 +265,11 @@ const MainFeature = ({ currentUser }) => {
         reviewedAt: null
       }
       setTasks(prevTasks => [...prevTasks, newTask])
+      toast.success('Task created successfully!')
     }
-
-
-    const newTask = {
-      id: Date.now().toString(),
-      ...taskData,
-      status: 'pending',
-      createdBy: currentUser.name,
-      createdAt: new Date(),
-      submittedAt: null,
-      reviewedAt: null
-    }
-    setTasks([...tasks, newTask])
     setShowTaskModal(false)
-    toast.success('Task created successfully!')
   }
+
 
   const handleCreateWriter = (writerData) => {
     const newWriter = {
@@ -284,6 +289,7 @@ const MainFeature = ({ currentUser }) => {
     setWriters([...writers, newWriter])
     setShowWriterModal(false)
     toast.success('Writer added successfully!')
+  }
 
   const handleCreateTemplate = (templateData) => {
     setTaskTemplates([...taskTemplates, templateData])
@@ -387,22 +393,22 @@ const MainFeature = ({ currentUser }) => {
   }
 
   // Role-based data filtering
+  const visibleTasks = filterTasksByRole(tasks, currentUser)
+  const statsData = calculateRoleBasedStats(visibleTasks, writers, currentUser)
+  const weeklyPerformance = getWeeklyPerformance(visibleTasks, writers, currentUser)
+  const pendingReviews = getPendingReviews(visibleTasks, currentUser)
+
   // Apply filters to visible tasks
   const filteredTasks = applyTaskFilters(visibleTasks, taskFilters)
   
   // Get all unique tags for filter options
   const availableTags = [...new Set(tasks.flatMap(task => task.tags))].sort()
 
-
-  const visibleTasks = filterTasksByRole(tasks, currentUser)
-  const statsData = calculateRoleBasedStats(visibleTasks, writers, currentUser)
-  const weeklyPerformance = getWeeklyPerformance(visibleTasks, writers, currentUser)
-  const pendingReviews = getPendingReviews(visibleTasks, currentUser)
-
   // Role-based writers list
   const visibleWriters = currentUser.role === 'admin' 
     ? writers.filter(w => w.role === 'writer')
     : writers.filter(w => w.id === currentUser.id || w.role === 'admin')
+
 
   return (
     <div className="space-y-6">
@@ -692,94 +698,38 @@ const MainFeature = ({ currentUser }) => {
               )}
             </div>
           )}
-
-
-                            (currentUser.role === 'writer' && task.assignedTo === currentUser.id)) && (
-                            <select
-                              value={task.status}
-                              onChange={(e) => updateTaskStatus(task.id, e.target.value)}
-                              className="writeflow-input text-sm py-2 min-w-0"
-                              disabled={currentUser.role === 'writer' && ['approved', 'in-review'].includes(task.status)}
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="in-progress">In Progress</option>
-                              <option value="submitted">Submitted</option>
-                              {currentUser.role === 'admin' && (
-                                <>
-                                  <option value="in-review">In Review</option>
-                                  <option value="approved">Approved</option>
-                                  <option value="needs-revision">Needs Revision</option>
-                                </>
-                              )}
-                            </select>
-                          )}
-                          <button
-                            onClick={() => setSelectedTask(task)}
-                            className="p-2 text-surface-600 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                          >
-                            <ApperIcon name="MoreHorizontal" className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {filteredTasks.length === 0 && (
-                    <div className="text-center py-8">
-                      <ApperIcon name="Search" className="w-12 h-12 text-surface-300 mx-auto mb-3" />
-                      <h4 className="font-medium text-surface-600 mb-2">
-                        {Object.values(taskFilters).some(v => v) ? 'No tasks match your filters' : 'No tasks yet'}
-                      </h4>
-                      <p className="text-sm text-surface-500 mb-4">
-                        {Object.values(taskFilters).some(v => v) 
-                          ? 'Try adjusting your filters to see more tasks'
-                          : currentUser.role === 'admin' 
-                            ? 'Create your first task to get started'
-                            : 'No tasks have been assigned to you yet'
-                        }
-                      </p>
-                      {Object.values(taskFilters).some(v => v) && (
-                        <button
-                          onClick={() => setTaskFilters({})}
-                          className="writeflow-button-secondary mr-2"
-                        >
-                          Clear Filters
-                        </button>
-                      )}
-                      {currentUser.role === 'admin' && (
-                        <button
-                          onClick={() => setShowTaskModal(true)}
-                          className="writeflow-button-primary"
-                        >
-                          Create First Task
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-
+          {activeTab === 'tasks' && (
             <div className="writeflow-card p-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 space-y-4 sm:space-y-0">
                 <h3 className="text-lg font-semibold text-surface-900">
                   {currentUser.role === 'admin' ? 'Task Management' : 'My Tasks'}
                 </h3>
-                {currentUser.role === 'admin' && (
-                  <button
-                    onClick={() => setShowTaskModal(true)}
-                    className="writeflow-button-primary flex items-center space-x-2"
-                  >
-                    <ApperIcon name="Plus" className="w-4 h-4" />
-                    <span>New Task</span>
-                  </button>
-                )}
+                <div className="flex items-center space-x-3">
+                  {currentUser.role === 'admin' && (
+                    <button
+                      onClick={() => setShowTaskModal(true)}
+                      className="writeflow-button-primary flex items-center space-x-2"
+                    >
+                      <ApperIcon name="Plus" className="w-4 h-4" />
+                      <span>New Task</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
+              {/* Task Filters */}
+              <div className="mb-6">
+                <TaskFilters
+                  filters={taskFilters}
+                  onFiltersChange={setTaskFilters}
+                  writers={visibleWriters}
+                  availableTags={availableTags}
+                />
+              </div>
+
+              {/* Task List */}
               <div className="space-y-4">
-                {visibleTasks.map((task) => (
+                {filteredTasks.map((task) => (
                   <div key={task.id} className="border border-surface-200 rounded-xl p-4 hover:shadow-soft transition-all duration-200">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-3 lg:space-y-0">
                       <div className="flex-1 min-w-0">
@@ -799,6 +749,14 @@ const MainFeature = ({ currentUser }) => {
                           {task.submittedAt && (
                             <span>Submitted: {format(task.submittedAt, 'MMM dd')}</span>
                           )}
+                        </div>
+                        {/* Tags */}
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {task.tags.map((tag) => (
+                            <span key={tag} className="px-2 py-1 bg-surface-100 text-surface-600 text-xs rounded-full">
+                              {tag}
+                            </span>
+                          ))}
                         </div>
                       </div>
                       
@@ -833,9 +791,44 @@ const MainFeature = ({ currentUser }) => {
                     </div>
                   </div>
                 ))}
+                
+                {filteredTasks.length === 0 && (
+                  <div className="text-center py-8">
+                    <ApperIcon name="Search" className="w-12 h-12 text-surface-300 mx-auto mb-3" />
+                    <h4 className="font-medium text-surface-600 mb-2">
+                      {Object.values(taskFilters).some(v => v) ? 'No tasks match your filters' : 'No tasks yet'}
+                    </h4>
+                    <p className="text-sm text-surface-500 mb-4">
+                      {Object.values(taskFilters).some(v => v) 
+                        ? 'Try adjusting your filters to see more tasks'
+                        : currentUser.role === 'admin' 
+                          ? 'Create your first task to get started'
+                          : 'No tasks have been assigned to you yet'
+                      }
+                    </p>
+                    {Object.values(taskFilters).some(v => v) && (
+                      <button
+                        onClick={() => setTaskFilters({})}
+                        className="writeflow-button-secondary mr-2"
+                      >
+                        Clear Filters
+                      </button>
+                    )}
+                    {currentUser.role === 'admin' && (
+                      <button
+                        onClick={() => setShowTaskModal(true)}
+                        className="writeflow-button-primary"
+                      >
+                        Create First Task
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
+
+
 
           {activeTab === 'writers' && currentUser.role === 'admin' && (
             <div className="writeflow-card p-6">
@@ -967,23 +960,23 @@ const MainFeature = ({ currentUser }) => {
       </AnimatePresence>
 
       {/* Task Creation Modal - Only for Admins */}
-
-      {/* Task Templates Modal - Only for Admins */}
       {currentUser.role === 'admin' && (
-        <TaskTemplatesModal
-          isOpen={showTaskTemplatesModal}
-          onClose={() => setShowTaskTemplatesModal(false)}
-          onSubmit={handleCreateTemplate}
-          existingTemplates={taskTemplates}
-        />
-
-        <TaskModal
-          isOpen={showTaskModal}
-          onClose={() => setShowTaskModal(false)}
-          onSubmit={handleCreateTask}
-          writers={visibleWriters}
-        />
+        <>
+          <TaskTemplatesModal
+            isOpen={showTaskTemplatesModal}
+            onClose={() => setShowTaskTemplatesModal(false)}
+            onSubmit={handleCreateTemplate}
+            existingTemplates={taskTemplates}
+          />
+          <TaskModal
+            isOpen={showTaskModal}
+            onClose={() => setShowTaskModal(false)}
+            onSubmit={handleCreateTask}
+            writers={visibleWriters}
+          />
+        </>
       )}
+
 
       {/* Writer Creation Modal - Only for Admins */}
       {currentUser.role === 'admin' && (
