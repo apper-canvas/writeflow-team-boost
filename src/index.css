@@ -1,0 +1,78 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+@layer base {
+  * {
+    @apply border-surface-200;
+  }
+  
+  body {
+    @apply text-surface-900 antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading font-semibold;
+  }
+}
+
+@layer components {
+  .writeflow-card {
+    @apply bg-white/70 backdrop-blur-sm border border-surface-200/50 rounded-2xl shadow-soft hover:shadow-card transition-all duration-300;
+  }
+  
+  .writeflow-button-primary {
+    @apply bg-gradient-to-r from-primary to-primary-light text-white px-6 py-3 rounded-xl font-medium shadow-soft hover:shadow-card transform hover:-translate-y-0.5 transition-all duration-200;
+  }
+  
+  .writeflow-button-secondary {
+    @apply bg-white/80 backdrop-blur-sm text-surface-700 px-6 py-3 rounded-xl font-medium border border-surface-200 shadow-soft hover:shadow-card transform hover:-translate-y-0.5 transition-all duration-200;
+  }
+  
+  .writeflow-input {
+    @apply w-full px-4 py-3 bg-white/80 backdrop-blur-sm border border-surface-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 placeholder-surface-400;
+  }
+  
+  .writeflow-status-badge {
+    @apply px-3 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .writeflow-sidebar {
+    @apply bg-white/60 backdrop-blur-md border-r border-surface-200/50;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-primary-light bg-clip-text text-transparent;
+  }
+  
+  .glass-morphism {
+    @apply bg-white/10 backdrop-blur-md border border-white/20;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-surface-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-surface-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-surface-400;
+}
+
+/* Responsive design helpers */
+@media (max-width: 640px) {
+  .writeflow-card {
+    @apply mx-4 rounded-xl;
+  }
+}
